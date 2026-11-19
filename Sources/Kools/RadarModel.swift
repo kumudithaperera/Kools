@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import KoolsCore
 import Observation
 import os
 import RepoRadarCore
@@ -20,8 +21,26 @@ final class RadarModel {
     private(set) var notice: String?
     /// Repos with a fetch in flight.
     private(set) var fetching: Set<String> = []
+    /// Repos whose T3 git thread is being started.
+    private(set) var startingGitTask: Set<String> = []
+    /// Commit messages written by T3 Code, by repo id.
+    private(set) var suggestions: [String: CommitSuggestion] = [:]
 
-    private static let log = Logger(subsystem: "local.repo-radar", category: "scan")
+    struct CommitSuggestion {
+        enum State: Equatable {
+            case writing
+            case ready(String)
+            case failed(String)
+        }
+
+        /// The repo state the message was written for; a new state gets a new message.
+        let key: String
+        /// The T3 thread that wrote it. The commit request goes to the same thread.
+        var threadID: String?
+        var state: State
+    }
+
+    private static let log = Logger(subsystem: "local.kools", category: "scan")
     private let scanner = RepoScanner.standard()
     private let interval: Duration = .seconds(300)
     private static let sectionOrder = [RepoScanner.iCloudSection, "Projects", "T3 worktrees"]
@@ -89,6 +108,88 @@ final class RadarModel {
                 Self.log.error("T3 open failed for \(root.path, privacy: .public): \(String(describing: error), privacy: .public)")
             }
         }
+    }
+
+    /// Asks T3 Code, in the background, for a commit message for the repo's
+    /// current changes. Runs once per repo state unless `again` is set, so
+    /// reopening a repo never starts a second thread for the same changes.
+    func suggestCommitMessage(for report: RepoReport, again: Bool = false) {
+        let key = Self.suggestionKey(for: report)
+        let existing = suggestions[report.id]
+        if existing?.state == .writing { return }
+        if !again, existing?.key == key { return }
+
+        suggestions[report.id] = CommitSuggestion(key: key, threadID: existing?.threadID, state: .writing)
+        Task {
+            do {
+                let prompt = GitTask.suggestMessagePrompt(repo: report.path, branch: report.status?.branch.head)
+                let thread: String
+                var itemsBefore: Int?
+                if let reused = existing?.threadID {
+                    thread = reused
+                    itemsBefore = try await T3Launcher.itemCount(of: reused)
+                    try await T3Launcher.send(to: reused, message: prompt)
+                } else {
+                    let root = await Self.workspaceRoot(for: report)
+                    thread = try await T3Launcher.startThread(
+                        in: root,
+                        title: "Commit message: \(report.displayName)",
+                        message: prompt,
+                        inBackground: true
+                    )
+                    suggestions[report.id]?.threadID = thread
+                }
+                let reply = try await T3Launcher.waitForReply(in: thread, afterItemCount: itemsBefore)
+                guard let message = CommitMessage.extract(from: reply) else {
+                    throw T3Launcher.LaunchError(description: "T3 Code replied without a commit message")
+                }
+                if suggestions[report.id]?.key == key { suggestions[report.id]?.state = .ready(message) }
+            } catch {
+                suggestions[report.id]?.state = .failed(String(describing: error))
+                Self.log.error("Commit message failed for \(report.path.path, privacy: .public): \(String(describing: error), privacy: .public)")
+            }
+        }
+    }
+
+    /// Hands a commit, push or pull to a T3 Code agent. A commit goes to the
+    /// thread that wrote its message when there is one; otherwise a new
+    /// thread starts. T3 Code comes to the front so you can follow it.
+    func runGitTask(_ task: GitTask, for report: RepoReport, message: String? = nil) {
+        guard !startingGitTask.contains(report.id) else { return }
+        startingGitTask.insert(report.id)
+        let prompt = task.prompt(repo: report.path, branch: report.status?.branch.head, message: message)
+        let reusable = (task == .commit || task == .commitAndPush) ? suggestions[report.id]?.threadID : nil
+        Task {
+            defer { startingGitTask.remove(report.id) }
+            let root = await Self.workspaceRoot(for: report)
+            do {
+                if let reusable {
+                    try await T3Launcher.open(root)
+                    try await T3Launcher.send(to: reusable, message: prompt)
+                } else {
+                    try await T3Launcher.startThread(in: root, title: task.threadTitle(repoName: report.displayName), message: prompt)
+                }
+                suggestions[report.id] = nil
+                notice = "\(task.title) for \(report.displayName) started in T3 Code"
+            } catch {
+                notice = "Couldn't start \(task.title) in T3 Code: \(error)"
+                Self.log.error("T3 thread failed for \(report.path.path, privacy: .public): \(String(describing: error), privacy: .public)")
+            }
+        }
+    }
+
+    private static func workspaceRoot(for report: RepoReport) async -> URL {
+        await Task.detached { RepoActions.t3WorkspaceRoot(for: report.path, kind: report.kind) }.value
+    }
+
+    /// Changes to this mean the diff changed enough to need a new message.
+    private static func suggestionKey(for report: RepoReport) -> String {
+        let status = report.status
+        return [
+            "\(status?.counts.changed ?? 0)/\(status?.counts.untracked ?? 0)/\(status?.counts.conflicted ?? 0)",
+            status?.branch.head ?? "",
+            report.lastCommit.map { "\($0.timeIntervalSince1970)" } ?? "",
+        ].joined(separator: "|")
     }
 
     func fetch(_ report: RepoReport) {
