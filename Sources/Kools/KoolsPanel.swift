@@ -8,6 +8,7 @@ struct KoolsPanel: View {
     let model: AppModel
     @AppStorage("panel.lastTab") private var lastTab: String = ""
     @Environment(\.openWindow) private var openWindow
+    @Namespace private var tabNamespace
 
     private var layout: TabLayout { model.preferences.tabLayout }
     private var activeTab: PanelTab { layout.opening(lastUsed: lastTab) }
@@ -23,6 +24,7 @@ struct KoolsPanel: View {
         }
         .padding(12)
         .frame(width: Metrics.panelWidth)
+        .background(PanelGlass())
         .onAppear {
             model.radar.refreshIfStale()
             model.cutPaste.refreshPending()
@@ -34,14 +36,14 @@ struct KoolsPanel: View {
             Text(MenuBarIcon.emoji).font(.system(size: 20))
             Text("Kools").font(.title3.weight(.semibold))
             Spacer()
-            if let badge = model.statusBadge {
+            if let badge = model.statusNeeds.first?.badge {
                 Label(badge.summary, systemImage: badge.symbol)
                     .font(.caption.weight(.medium))
                     .foregroundStyle(.white)
                     .lineLimit(1)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(badge.color.gradient, in: .capsule)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .glassSurface(in: .capsule, tint: badge.color, fallback: AnyShapeStyle(badge.color.gradient))
             } else {
                 Label("All good", systemImage: "checkmark")
                     .font(.caption)
@@ -55,7 +57,7 @@ struct KoolsPanel: View {
             ForEach(layout.visible) { tab in
                 let isActive = tab == activeTab
                 Button {
-                    lastTab = tab.rawValue
+                    withAnimation(.snappy(duration: 0.25)) { lastTab = tab.rawValue }
                 } label: {
                     // Icon and name: with few tabs there's room, and names read faster.
                     HStack(spacing: 6) {
@@ -75,22 +77,20 @@ struct KoolsPanel: View {
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 30)
-                    .contentShape(.rect(cornerRadius: 8))
+                    .contentShape(.rect(cornerRadius: Metrics.tabCorner))
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(isActive ? Color.accentColor : .secondary)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(isActive ? Color.accentColor.opacity(0.16) : .clear)
-                )
+                .foregroundStyle(isActive ? Color.primary : .secondary)
+                .tabSelection(isActive, in: tabNamespace)
                 .help(tab.title)
                 .accessibilityLabel(tab.title)
                 .accessibilityAddTraits(isActive ? .isSelected : [])
             }
         }
         .padding(4)
-        .background(.quaternary.opacity(0.35), in: .rect(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.quaternary, lineWidth: 0.5))
+        .background(.quaternary.opacity(0.35), in: .rect(cornerRadius: Metrics.corner))
+        .overlay(RoundedRectangle(cornerRadius: Metrics.corner).strokeBorder(.quaternary, lineWidth: 0.5))
+        .glassGroup(spacing: 4)
     }
 
     @ViewBuilder
@@ -156,6 +156,7 @@ private struct ToolsPanelTab: View {
                     }
                 }
             }
+            .glassGroup()
         }
         .scrollBounceBehavior(.basedOnSize)
     }
@@ -199,7 +200,7 @@ private struct ToolsPanelTab: View {
         case .shelf:
             ShelfItemsList(service: model.shelf)
                 .frame(height: 130)
-                .background(.background.opacity(0.5), in: .rect(cornerRadius: Metrics.rowCorner))
+                .background(.background.opacity(0.5), in: .rect(cornerRadius: Metrics.tileCorner))
             HStack {
                 Button(model.shelf.isVisible ? "Hide Floating Shelf" : "Open Floating Shelf") { model.shelf.toggle() }
                 Spacer()
@@ -234,8 +235,8 @@ private struct ToolsPanelTab: View {
                 .font(.system(.caption, design: .rounded).weight(.semibold))
                 .padding(.horizontal, 5)
                 .padding(.vertical, 2)
-                .background(.background, in: .rect(cornerRadius: 4))
-                .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(.quaternary))
+                .background(.background, in: .rect(cornerRadius: 6))
+                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(.quaternary))
             Text(text).font(.caption).foregroundStyle(.secondary)
         }
     }
@@ -271,7 +272,7 @@ private struct ToolCard<Details: View>: View {
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(isOn ? Color.accentColor : .secondary)
                             .frame(width: 28, height: 28)
-                            .background(.quaternary.opacity(0.6), in: .rect(cornerRadius: 7))
+                            .background(.quaternary.opacity(0.6), in: .rect(cornerRadius: Metrics.tileCorner))
                             .overlay(alignment: .topTrailing) {
                                 if let badge {
                                     Circle().fill(badge.color).frame(width: 7, height: 7).offset(x: 2, y: -2)
@@ -304,7 +305,6 @@ private struct ToolCard<Details: View>: View {
             }
         }
         .padding(10)
-        .background(.quaternary.opacity(0.35), in: .rect(cornerRadius: Metrics.corner))
-        .overlay(RoundedRectangle(cornerRadius: Metrics.corner).strokeBorder(.quaternary, lineWidth: 0.5))
+        .glassSurface(in: .rect(cornerRadius: Metrics.corner))
     }
 }

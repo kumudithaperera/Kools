@@ -117,9 +117,15 @@ final class AppModel {
         (preferences.quitOnCloseEnabled || preferences.cutPasteEnabled) && !access.isTrusted
     }
 
-    /// What the menu bar shows in place of the app icon, if anything.
-    var statusBadge: StatusBadge? {
-        StatusBadge.top(reports: radar.allReports, needsPermission: needsPermission)
+    /// Features that are on but lack Accessibility access.
+    private var permissionCount: Int {
+        guard !access.isTrusted else { return 0 }
+        return [preferences.quitOnCloseEnabled, preferences.cutPasteEnabled].filter { $0 }.count
+    }
+
+    /// What the menu bar shows in place of the app icon, most urgent first.
+    var statusNeeds: [StatusNeed] {
+        StatusBadge.needs(reports: radar.allReports, permissionCount: permissionCount)
     }
 
     /// The dot on a tab's icon in the panel.

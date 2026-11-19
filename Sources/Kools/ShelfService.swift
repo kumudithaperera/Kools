@@ -216,8 +216,7 @@ struct ShelfView: View {
             ShelfItemsList(service: service)
         }
         .frame(width: 280, height: 320)
-        .background(.regularMaterial, in: .rect(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.primary.opacity(0.1)))
+        .glassSurface(in: .rect(cornerRadius: Metrics.shelfCorner), fallback: AnyShapeStyle(.regularMaterial))
     }
 }
 
@@ -249,7 +248,7 @@ struct ShelfItemsList: View {
         }
         .overlay {
             if isTargeted {
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: Metrics.shelfCorner - 3)
                     .strokeBorder(Color.accentColor, style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
                     .padding(3)
             }
@@ -281,7 +280,7 @@ private struct ShelfRow: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 5)
-        .background(isHovered ? Color.primary.opacity(0.07) : .clear, in: .rect(cornerRadius: 6))
+        .background(isHovered ? Color.primary.opacity(0.07) : .clear, in: .rect(cornerRadius: Metrics.tileCorner))
         .contentShape(.rect)
         .onHover { isHovered = $0 }
         .onDrag { ShelfService.provider(for: item) }

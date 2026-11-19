@@ -2,40 +2,43 @@ import AppKit
 import KoolsCore
 import SwiftUI
 
-/// The menu bar item: the 😆 app icon when all is well, or, like a Live
-/// Activity, a small colored pill showing only the icon of the most urgent
-/// action.
+/// The menu bar item: the 😆 app icon, with a small colored notification dot
+/// when something needs you. The dot's color is the most urgent need.
 @MainActor
 enum MenuBarIcon {
     static let emoji = "😆"
     private static var cache: [StatusBadge?: NSImage] = [:]
 
-    static func image(for badge: StatusBadge?) -> NSImage {
+    static func image(for needs: [StatusNeed]) -> NSImage {
+        let badge = needs.first?.badge
         if let cached = cache[badge] { return cached }
         let renderer = ImageRenderer(content: label(for: badge))
         renderer.scale = 2
         let image = renderer.nsImage ?? NSImage()
-        // Colored, so it must not be tinted like a template image.
+        // The dot is colored, so it must not be tinted like a template image.
         image.isTemplate = false
-        image.accessibilityDescription = badge?.summary ?? "Kools"
+        image.accessibilityDescription = needs.isEmpty
+            ? "Kools"
+            : needs.map(\.summary).joined(separator: ", ")
         cache[badge] = image
         return image
     }
 
-    @ViewBuilder
     private static func label(for badge: StatusBadge?) -> some View {
-        if let badge {
-            Image(systemName: badge.symbol)
-                .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(width: 26, height: 16)
-                .background(badge.color.gradient, in: .capsule)
-                .frame(width: 28, height: 18)
-        } else {
-            Text(emoji)
-                .font(.system(size: 14))
-                .frame(width: 20, height: 18)
-        }
+        Text(emoji)
+            .font(.system(size: 14))
+            .frame(width: 20, height: 22)
+            .overlay(alignment: .topTrailing) {
+                if let badge {
+                    Circle()
+                        .fill(badge.color)
+                        .frame(width: 7, height: 7)
+                        .overlay(Circle().strokeBorder(.white.opacity(0.9), lineWidth: 1))
+                        .offset(x: 3, y: 1)
+                }
+            }
+            // Room on the right for the dot (it overhangs by 3 pt), with a margin.
+            .padding(.trailing, 5)
     }
 }
 

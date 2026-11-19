@@ -290,7 +290,7 @@ private struct RepoRow: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(8)
-        .background(Color.accentColor.opacity(0.07), in: .rect(cornerRadius: Metrics.rowCorner))
+        .background(Color.accentColor.opacity(0.07), in: .rect(cornerRadius: Metrics.tileCorner))
         .onAppear {
             if commits, autoSuggest { radar.suggestCommitMessage(for: report) }
             fill(from: suggestion)

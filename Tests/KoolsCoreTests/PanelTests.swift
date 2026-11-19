@@ -106,6 +106,28 @@ final class StatusBadgeTests: XCTestCase {
         XCTAssertEqual(StatusBadge.top(reports: reports, needsPermission: true), .permission)
         XCTAssertNil(StatusBadge.top(reports: [], needsPermission: false))
     }
+
+    func testNeedsCountReposPerBadgeMostUrgentFirst() {
+        let reports = [
+            report(ahead: 1), report(ahead: 3), report(changed: 2), report(behind: 1),
+            report(findings: [Finding(.warning, "Nested")]), report(),
+        ]
+        XCTAssertEqual(StatusBadge.needs(reports: reports, permissionCount: 0), [
+            StatusNeed(badge: .warning, count: 1),
+            StatusNeed(badge: .commit, count: 1),
+            StatusNeed(badge: .push, count: 2),
+            StatusNeed(badge: .pull, count: 1),
+        ])
+        XCTAssertEqual(StatusBadge.needs(reports: reports, permissionCount: 2).first,
+                       StatusNeed(badge: .permission, count: 2))
+        XCTAssertTrue(StatusBadge.needs(reports: [report()], permissionCount: 0).isEmpty)
+    }
+
+    func testCountLabelCapsAtNinetyNinePlus() {
+        XCTAssertEqual(StatusNeed(badge: .pull, count: 9).countLabel, "9")
+        XCTAssertEqual(StatusNeed(badge: .pull, count: 99).countLabel, "99")
+        XCTAssertEqual(StatusNeed(badge: .pull, count: 128).countLabel, "99+")
+    }
 }
 
 final class CommitMessageTests: XCTestCase {

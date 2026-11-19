@@ -55,4 +55,33 @@ public enum StatusBadge: Int, Comparable, CaseIterable, Sendable {
         if needsPermission { return .permission }
         return reports.compactMap(badge(for:)).max()
     }
+
+    /// Every distinct need with how many things share it, most urgent first.
+    /// Repos are counted under the one badge that is their top need; a
+    /// permission need counts the features that are missing access.
+    public static func needs(reports: [RepoReport], permissionCount: Int) -> [StatusNeed] {
+        var counts: [StatusBadge: Int] = [:]
+        for badge in reports.compactMap(badge(for:)) { counts[badge, default: 0] += 1 }
+        if permissionCount > 0 { counts[.permission] = permissionCount }
+        return counts
+            .map { StatusNeed(badge: $0.key, count: $0.value) }
+            .sorted { $0.badge > $1.badge }
+    }
+}
+
+/// One kind of need and how many things share it. The menu bar draws the
+/// most urgent as a compact pill, or the top two as a minimal pair.
+public struct StatusNeed: Hashable, Sendable {
+    public let badge: StatusBadge
+    public let count: Int
+
+    public init(badge: StatusBadge, count: Int) {
+        self.badge = badge
+        self.count = count
+    }
+
+    /// The count as shown in the pill, capped so the width stays fixed.
+    public var countLabel: String { count > 99 ? "99+" : String(count) }
+
+    public var summary: String { "\(badge.summary): \(count)" }
 }

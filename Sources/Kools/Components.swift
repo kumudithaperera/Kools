@@ -5,11 +5,71 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// Spacing and shape tokens shared by the panel and the settings window.
+///
+/// Radii are concentric: each is the next one out minus the padding between
+/// them, so nested shapes keep an even gap around the curve. The panel
+/// window sits outside all of these.
 enum Metrics {
     static let panelWidth: CGFloat = 340
     static let contentHeight: CGFloat = 380
-    static let corner: CGFloat = 10
-    static let rowCorner: CGFloat = 7
+    /// Cards and the tab bar, inset 12 from the panel edge.
+    static let corner: CGFloat = 18
+    /// The selected tab, inset 4 inside the tab bar.
+    static let tabCorner: CGFloat = 14
+    /// Rows inside a card, inset 6.
+    static let rowCorner: CGFloat = 12
+    /// Wells and notices inside a card's details, icon tiles, key caps.
+    static let tileCorner: CGFloat = 8
+    /// The menu bar panel window.
+    static let panelCorner: CGFloat = 26
+    /// The floating shelf window.
+    static let shelfCorner: CGFloat = 24
+}
+
+extension View {
+    /// Liquid Glass on macOS 26 and later; a flat tinted fill with a hairline
+    /// before that.
+    @ViewBuilder
+    func glassSurface<S: InsettableShape>(
+        in shape: S,
+        tint: Color? = nil,
+        interactive: Bool = false,
+        fallback: AnyShapeStyle = AnyShapeStyle(.quaternary.opacity(0.35))
+    ) -> some View {
+        if #available(macOS 26, *) {
+            glassEffect(.regular.tint(tint).interactive(interactive), in: shape)
+        } else {
+            background(fallback, in: shape)
+                .overlay(shape.strokeBorder(.quaternary, lineWidth: 0.5))
+        }
+    }
+
+    /// The selected tab: tinted glass behind the label that slides between
+    /// tabs. The glass is applied to the label itself so the text draws on
+    /// top of it.
+    @ViewBuilder
+    func tabSelection(_ isActive: Bool, in namespace: Namespace.ID) -> some View {
+        if #available(macOS 26, *) {
+            if isActive {
+                glassEffect(.regular.tint(Color.accentColor.opacity(0.25)), in: .rect(cornerRadius: Metrics.tabCorner))
+                    .glassEffectID("activeTab", in: namespace)
+            } else {
+                self
+            }
+        } else {
+            background(isActive ? Color.accentColor.opacity(0.16) : .clear, in: .rect(cornerRadius: Metrics.tabCorner))
+        }
+    }
+
+    /// Groups glass shapes so they blend and sample the same backdrop.
+    @ViewBuilder
+    func glassGroup(spacing: CGFloat = 8) -> some View {
+        if #available(macOS 26, *) {
+            GlassEffectContainer(spacing: spacing) { self }
+        } else {
+            self
+        }
+    }
 }
 
 /// Accessibility status, with a button to grant it when missing.
@@ -32,7 +92,7 @@ struct PermissionRow: View {
                     .controlSize(.small)
             }
             .padding(8)
-            .background(StatusBadge.permission.color.opacity(0.1), in: .rect(cornerRadius: Metrics.rowCorner))
+            .background(StatusBadge.permission.color.opacity(0.12), in: .rect(cornerRadius: Metrics.tileCorner))
         }
     }
 }
@@ -45,8 +105,7 @@ struct Card<Content: View>: View {
         VStack(alignment: .leading, spacing: 0) { content }
             .padding(6)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.quaternary.opacity(0.35), in: .rect(cornerRadius: Metrics.corner))
-            .overlay(RoundedRectangle(cornerRadius: Metrics.corner).strokeBorder(.quaternary, lineWidth: 0.5))
+            .glassSurface(in: .rect(cornerRadius: Metrics.corner))
     }
 }
 
@@ -198,4 +257,34 @@ extension RepoReport {
         }
         return parts.isEmpty ? path.path : parts.joined(separator: " · ")
     }
+}
+
+/// Gives the menu bar window a Liquid Glass backdrop on macOS 26 and later.
+/// `MenuBarExtra` draws its own flat background and ignores
+/// `containerBackground`, so this puts an `NSGlassEffectView` behind the
+/// hosting view and clears the window's background.
+struct PanelGlass: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async { [weak view] in
+            guard #available(macOS 26, *), let window = view?.window,
+                  let frameView = window.contentView?.superview,
+                  !frameView.subviews.contains(where: { $0 is NSGlassEffectView })
+            else { return }
+            let glass = NSGlassEffectView(frame: frameView.bounds)
+            glass.autoresizingMask = [.width, .height]
+            glass.cornerRadius = Metrics.panelCorner
+            window.backgroundColor = .clear
+            window.isOpaque = false
+            frameView.wantsLayer = true
+            frameView.layer?.cornerRadius = Metrics.panelCorner
+            frameView.layer?.cornerCurve = .continuous
+            frameView.layer?.masksToBounds = true
+            frameView.addSubview(glass, positioned: .below, relativeTo: frameView.subviews.first)
+            window.invalidateShadow()
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
 }

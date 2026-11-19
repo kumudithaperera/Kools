@@ -62,7 +62,7 @@ private struct GeneralTab: View {
                     LabeledContent {
                         Text(badge.summary).foregroundStyle(.secondary)
                     } label: {
-                        Image(nsImage: MenuBarIcon.image(for: badge))
+                        Image(nsImage: MenuBarIcon.image(for: [StatusNeed(badge: badge, count: 3)]))
                     }
                 }
             }

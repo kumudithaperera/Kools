@@ -10,7 +10,7 @@ struct KoolsApp: App {
         MenuBarExtra {
             KoolsPanel(model: model)
         } label: {
-            Image(nsImage: MenuBarIcon.image(for: model.statusBadge))
+            Image(nsImage: MenuBarIcon.image(for: model.statusNeeds))
         }
         .menuBarExtraStyle(.window)
 
