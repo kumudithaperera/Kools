@@ -16,6 +16,12 @@ final class CutPasteService {
     /// Files waiting for ⌘V; 0 when no cut is pending.
     private(set) var pendingFileCount = 0
 
+    /// Called with the cut files once Finder's copy lands on the pasteboard.
+    @ObservationIgnored var onCut: (([URL]) -> Void)?
+    /// Called with the cut files when ⌘V turns into a move.
+    @ObservationIgnored var onMove: (([URL]) -> Void)?
+    @ObservationIgnored private var cutURLs: [URL] = []
+
     @ObservationIgnored private var tap: CFMachPort?
     @ObservationIgnored private var source: CFRunLoopSource?
     @ObservationIgnored private var router = CutPasteRouter() {
@@ -123,6 +129,8 @@ final class CutPasteService {
             event.flags.insert(.maskAlternate)
             movedKeyUps.insert(code)
             router.clear()
+            onMove?(cutURLs)
+            cutURLs = []
             return true
         }
     }
@@ -137,9 +145,11 @@ final class CutPasteService {
         // Finder writes the pasteboard shortly after the menu action.
         try? await Task.sleep(for: .milliseconds(300))
         router.recordCut(before: before, after: pasteboard.changeCount, hasFiles: Self.hasFiles(pasteboard))
-        pendingFileCount = router.hasPendingCut
-            ? pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true])?.count ?? 0
-            : 0
+        cutURLs = router.hasPendingCut
+            ? pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+            : []
+        pendingFileCount = cutURLs.count
+        if !cutURLs.isEmpty { onCut?(cutURLs) }
     }
 
     /// Presses Finder's own Edit ▸ Copy through Accessibility, found by its

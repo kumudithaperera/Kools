@@ -109,6 +109,8 @@ final class AppModel {
     init() {
         preferences.onChange = { [weak self] in self?.apply() }
         access.onChange = { [weak self] in self?.apply() }
+        cutPaste.onCut = { [weak self] urls in self?.shelf.parkCut(urls) }
+        cutPaste.onMove = { [weak self] urls in self?.shelf.cutWasPasted(urls) }
         apply()
     }
 

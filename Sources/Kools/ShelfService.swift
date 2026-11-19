@@ -19,6 +19,8 @@ final class ShelfService {
     @ObservationIgnored private var gestureBaseline: Int?
     /// The shelf opened by a shake; it closes again if the drag ends with nothing dropped.
     @ObservationIgnored private var openedByShake = false
+    /// The shelf opened by a Finder cut; it closes again once the paste empties it.
+    @ObservationIgnored private var openedByCut = false
 
     func setEnabled(_ enabled: Bool) {
         if enabled, monitor == nil {
@@ -51,6 +53,7 @@ final class ShelfService {
         panel?.orderOut(nil)
         isVisible = false
         openedByShake = false
+        openedByCut = false
     }
 
     private func makePanel() -> ShelfPanel {
@@ -109,6 +112,30 @@ final class ShelfService {
         shelf.removeAll()
     }
 
+    /// Shows files cut in Finder on the shelf, so the pending cut is visible.
+    func parkCut(_ urls: [URL]) {
+        shelf.add(urls.map { .file($0) })
+        if !isVisible {
+            openedByCut = true
+            show(near: nil)
+        }
+    }
+
+    /// After ⌘V moved the cut files, drops them from the shelf once Finder
+    /// has finished moving them away from their old path.
+    func cutWasPasted(_ urls: [URL]) {
+        Task { [weak self] in
+            // Large or cross-volume moves take a while; stop waiting after ~10 s.
+            for _ in 0..<40 {
+                try? await Task.sleep(for: .milliseconds(250))
+                if !urls.contains(where: { FileManager.default.fileExists(atPath: $0.path) }) { break }
+            }
+            guard let self else { return }
+            self.shelf.pruneMissingFiles()
+            if self.openedByCut, self.shelf.isEmpty { self.hide() }
+        }
+    }
+
     /// Reads dropped items. File and web URLs come first; plain text only
     /// when the item carries no URL.
     func accept(_ providers: [NSItemProvider]) -> Bool {
@@ -137,9 +164,13 @@ final class ShelfService {
     /// What a drag out of the shelf carries.
     static func provider(for item: ShelfItem) -> NSItemProvider {
         switch item {
-        case .file(let url): NSItemProvider(contentsOf: url) ?? NSItemProvider(object: url as NSURL)
-        case .link(let url): NSItemProvider(object: url as NSURL)
-        case .text(let text): NSItemProvider(object: text as NSString)
+        case .file(let url):
+            let provider = NSItemProvider(contentsOf: url) ?? NSItemProvider(object: url as NSURL)
+            // Without a name, Finder names the dropped file after its type ("PDF document.pdf").
+            provider.suggestedName = url.lastPathComponent
+            return provider
+        case .link(let url): return NSItemProvider(object: url as NSURL)
+        case .text(let text): return NSItemProvider(object: text as NSString)
         }
     }
 }
