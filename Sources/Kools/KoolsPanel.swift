@@ -53,7 +53,7 @@ struct KoolsPanel: View {
     }
 
     private var tabBar: some View {
-        HStack(spacing: 2) {
+        EvenPaddingRow(spacing: 2) {
             ForEach(layout.visible) { tab in
                 let isActive = tab == activeTab
                 Button {
@@ -75,6 +75,7 @@ struct KoolsPanel: View {
                             .font(.callout.weight(.medium))
                             .lineLimit(1)
                     }
+                    .padding(.horizontal, Metrics.tabPadding)
                     .frame(maxWidth: .infinity)
                     .frame(height: 30)
                     .contentShape(.rect(cornerRadius: Metrics.tabCorner))

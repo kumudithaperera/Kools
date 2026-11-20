@@ -5,16 +5,22 @@ public protocol PriorityItem: RawRepresentable, CaseIterable, Hashable, Identifi
     where RawValue == String, AllCases == [Self] {
     var title: String { get }
     var symbol: String { get }
+    /// An item that always stays last, whatever the saved order or a move says.
+    static var pinnedLast: Self? { get }
 }
 
 extension PriorityItem {
     public var id: String { rawValue }
+    public static var pinnedLast: Self? { nil }
 }
 
 /// The tabs of the menu bar panel. Each main feature gets its own tab; small
 /// features share the Tools tab.
 public enum PanelTab: String, PriorityItem {
     case repoRadar, tools
+
+    /// Tools holds the small features, so it closes the tab bar.
+    public static var pinnedLast: PanelTab? { .tools }
 
     public var title: String {
         switch self {
@@ -67,7 +73,7 @@ public struct PriorityOrder<Item: PriorityItem>: Equatable, Sendable {
             order.append(item)
         }
         order += Item.allCases.filter { !order.contains($0) }
-        self.order = order
+        self.order = Self.pinning(order)
         hidden = Set(savedHidden.compactMap(Item.init(rawValue:)))
         if visible.isEmpty { hidden.remove(order[0]) }
     }
@@ -75,6 +81,11 @@ public struct PriorityOrder<Item: PriorityItem>: Equatable, Sendable {
     public static var `default`: Self { Self() }
 
     public var visible: [Item] { order.filter { !hidden.contains($0) } }
+
+    private static func pinning(_ order: [Item]) -> [Item] {
+        guard let last = Item.pinnedLast else { return order }
+        return order.filter { $0 != last } + [last]
+    }
 
     public var savedOrder: [String] { order.map(\.rawValue) }
     public var savedHidden: [String] { order.filter(hidden.contains).map(\.rawValue) }
@@ -85,7 +96,7 @@ public struct PriorityOrder<Item: PriorityItem>: Equatable, Sendable {
         var rest = order.enumerated().filter { !source.contains($0.offset) }.map(\.element)
         let insertAt = destination - source.filter { $0 < destination }.count
         rest.insert(contentsOf: moving, at: min(max(insertAt, 0), rest.count))
-        order = rest
+        order = Self.pinning(rest)
     }
 
     /// Hiding the last visible item is refused, so nothing is ever empty.

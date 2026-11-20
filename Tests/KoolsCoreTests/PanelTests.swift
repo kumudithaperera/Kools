@@ -10,7 +10,7 @@ final class PriorityOrderTests: XCTestCase {
 
     func testSavedOrderIsRepairedNotLost() {
         // Old saves listed the tools as tabs; those names are dropped.
-        XCTAssertEqual(TabLayout(order: ["shelf", "tools", "cutPaste"]).order, [.tools, .repoRadar])
+        XCTAssertEqual(TabLayout(order: ["shelf", "tools", "cutPaste"]).order, [.repoRadar, .tools])
         XCTAssertEqual(ToolLayout(order: ["cutPaste", "bogus", "cutPaste"]).order, [.cutPaste, .shelf, .quitOnClose])
     }
 
@@ -24,6 +24,16 @@ final class PriorityOrderTests: XCTestCase {
         XCTAssertEqual(layout.order, [.cutPaste, .shelf, .quitOnClose])
     }
 
+    func testToolsTabStaysLast() {
+        XCTAssertEqual(TabLayout(order: ["tools", "repoRadar"]).order, [.repoRadar, .tools])
+        var layout = TabLayout()
+        layout.move(fromOffsets: [1], toOffset: 0)
+        XCTAssertEqual(layout.order, [.repoRadar, .tools], "moving Tools up is undone")
+        layout.move(fromOffsets: [0], toOffset: 2)
+        XCTAssertEqual(layout.order, [.repoRadar, .tools], "nothing goes below Tools")
+        XCTAssertNil(ToolItem.pinnedLast)
+    }
+
     func testLastVisibleItemCannotBeHidden() {
         var layout = TabLayout(hidden: ["tools"])
         layout.setHidden(.repoRadar, true)
@@ -32,10 +42,10 @@ final class PriorityOrderTests: XCTestCase {
     }
 
     func testOpensOnLastUsedUnlessHidden() {
-        let layout = TabLayout(order: ["tools"], hidden: [])
-        XCTAssertEqual(layout.opening(lastUsed: "repoRadar"), .repoRadar)
-        XCTAssertEqual(layout.opening(lastUsed: "shelf"), .tools)
-        XCTAssertEqual(layout.opening(lastUsed: nil), .tools)
+        let layout = TabLayout()
+        XCTAssertEqual(layout.opening(lastUsed: "tools"), .tools)
+        XCTAssertEqual(layout.opening(lastUsed: "shelf"), .repoRadar)
+        XCTAssertEqual(layout.opening(lastUsed: nil), .repoRadar)
         XCTAssertEqual(TabLayout(hidden: ["repoRadar"]).opening(lastUsed: "repoRadar"), .tools)
     }
 

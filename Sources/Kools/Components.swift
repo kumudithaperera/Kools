@@ -16,6 +16,8 @@ enum Metrics {
     static let corner: CGFloat = 18
     /// The selected tab, inset 4 inside the tab bar.
     static let tabCorner: CGFloat = 14
+    /// The least space on each side of a tab's label; spare room is shared evenly on top.
+    static let tabPadding: CGFloat = 6
     /// Rows inside a card, inset 6.
     static let rowCorner: CGFloat = 12
     /// Wells and notices inside a card's details, icon tiles, key caps.
@@ -287,4 +289,31 @@ struct PanelGlass: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {}
+}
+
+/// A row where each child gets its own ideal width plus an equal share of the
+/// spare room. Stretching children to equal widths would give a short label
+/// wide padding and a long one almost none; this keeps the padding the same.
+struct EvenPaddingRow: Layout {
+    var spacing: CGFloat = 0
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let ideals = subviews.map { $0.sizeThatFits(.unspecified) }
+        let natural = ideals.map(\.width).reduce(0, +) + spacing * CGFloat(max(subviews.count - 1, 0))
+        return CGSize(width: proposal.width ?? natural, height: ideals.map(\.height).max() ?? 0)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard !subviews.isEmpty else { return }
+        let ideals = subviews.map { $0.sizeThatFits(.unspecified).width }
+        let gaps = spacing * CGFloat(subviews.count - 1)
+        // Negative when the labels don't fit: then every tab gives up the same amount.
+        let share = (bounds.width - gaps - ideals.reduce(0, +)) / CGFloat(subviews.count)
+        var x = bounds.minX
+        for (subview, ideal) in zip(subviews, ideals) {
+            let width = max(0, ideal + share)
+            subview.place(at: CGPoint(x: x, y: bounds.minY), proposal: ProposedViewSize(width: width, height: bounds.height))
+            x += width + spacing
+        }
+    }
 }

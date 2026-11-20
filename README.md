@@ -24,8 +24,9 @@ Live Activity, by a small colored pill with only the icon of the most urgent act
 
 Clicking the icon opens a panel with two tabs for now: **Repo Radar**, and **Tools** for
 the small features (Shelf, Quit on Close, Cut & Paste), one card each with its own switch.
-Each main feature added later gets its own tab. A dot on a tab or card shows it needs
-something. The panel reopens on the tab you used last.
+Each main feature added later gets its own tab, before Tools: Tools always stays last.
+A dot on a tab or card shows it needs something. The panel reopens on the tab you used
+last.
 
 **Settings…** (⌘,) opens the settings window. Its **General** tab sets the priority of
 both: the order of the tabs, and the order of the cards inside Tools. Drag to reorder,
@@ -154,7 +155,3 @@ signature, so an ad-hoc signed build would need it granted again after every reb
 
 The app icon is also 😆, drawn by `scripts/make-icon.swift` during `bundle.sh`, so the
 repo holds no image files.
-
-## Ideas
-
-Future modules are in [`docs/ideas/`](docs/ideas/).

@@ -89,8 +89,8 @@ private struct PrioritySection<Item: PriorityItem>: View {
                             set: { layout.setHidden(item, !$0) }
                         ),
                         canHide: layout.visible != [item],
-                        moveUp: index > 0 ? { move(index, by: -1) } : nil,
-                        moveDown: index < layout.order.count - 1 ? { move(index, by: 1) } : nil
+                        moveUp: index > 0 && item != Item.pinnedLast ? { move(index, by: -1) } : nil,
+                        moveDown: index < movableCount - 1 ? { move(index, by: 1) } : nil
                     )
                 }
                 .onMove { layout.move(fromOffsets: $0, toOffset: $1) }
@@ -108,6 +108,9 @@ private struct PrioritySection<Item: PriorityItem>: View {
             }
         }
     }
+
+    /// Items that can be reordered: all but a pinned last one.
+    private var movableCount: Int { layout.order.count - (Item.pinnedLast == nil ? 0 : 1) }
 
     private func move(_ index: Int, by offset: Int) {
         layout.move(fromOffsets: [index], toOffset: offset < 0 ? index - 1 : index + 2)
