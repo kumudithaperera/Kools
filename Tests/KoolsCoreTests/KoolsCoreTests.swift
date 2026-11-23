@@ -62,23 +62,23 @@ final class CutPasteRouterTests: XCTestCase {
 }
 
 final class QuitOnCloseTests: XCTestCase {
-    private let selected: Set<String> = ["com.apple.Preview", "com.apple.finder"]
+    private let rule = QuitOnClose.Rule(selected: ["com.apple.Preview", "com.apple.finder"])
     private let big = QuitOnClose.ServerWindow(layer: 0, width: 800, height: 600, alpha: 1)
 
     func testQuitsSelectedAppWithNoWindows() {
-        XCTAssertTrue(QuitOnClose.shouldQuit(bundleID: "com.apple.Preview", selected: selected, accessibilityWindowCount: 0, serverWindows: []))
+        XCTAssertTrue(QuitOnClose.shouldQuit(bundleID: "com.apple.Preview", rule: rule, accessibilityWindowCount: 0, serverWindows: []))
     }
 
     func testKeepsUnselectedAndExemptApps() {
-        XCTAssertFalse(QuitOnClose.shouldQuit(bundleID: "com.apple.Notes", selected: selected, accessibilityWindowCount: 0, serverWindows: []))
-        XCTAssertFalse(QuitOnClose.shouldQuit(bundleID: "com.apple.finder", selected: selected, accessibilityWindowCount: 0, serverWindows: []))
-        XCTAssertFalse(QuitOnClose.shouldQuit(bundleID: nil, selected: selected, accessibilityWindowCount: 0, serverWindows: []))
+        XCTAssertFalse(QuitOnClose.shouldQuit(bundleID: "com.apple.Notes", rule: rule, accessibilityWindowCount: 0, serverWindows: []))
+        XCTAssertFalse(QuitOnClose.shouldQuit(bundleID: "com.apple.finder", rule: rule, accessibilityWindowCount: 0, serverWindows: []))
+        XCTAssertFalse(QuitOnClose.shouldQuit(bundleID: nil, rule: rule, accessibilityWindowCount: 0, serverWindows: []))
     }
 
     func testAnyRemainingWindowKeepsTheApp() {
-        XCTAssertFalse(QuitOnClose.shouldQuit(bundleID: "com.apple.Preview", selected: selected, accessibilityWindowCount: 1, serverWindows: []))
+        XCTAssertFalse(QuitOnClose.shouldQuit(bundleID: "com.apple.Preview", rule: rule, accessibilityWindowCount: 1, serverWindows: []))
         // Accessibility sees none, but the window server has one (another Space).
-        XCTAssertFalse(QuitOnClose.shouldQuit(bundleID: "com.apple.Preview", selected: selected, accessibilityWindowCount: 0, serverWindows: [big]))
+        XCTAssertFalse(QuitOnClose.shouldQuit(bundleID: "com.apple.Preview", rule: rule, accessibilityWindowCount: 0, serverWindows: [big]))
     }
 
     func testHelperSurfacesDoNotCountAsWindows() {
@@ -87,7 +87,21 @@ final class QuitOnCloseTests: XCTestCase {
             QuitOnClose.ServerWindow(layer: 0, width: 20, height: 20, alpha: 1),
             QuitOnClose.ServerWindow(layer: 0, width: 800, height: 600, alpha: 0),
         ]
-        XCTAssertTrue(QuitOnClose.shouldQuit(bundleID: "com.apple.Preview", selected: selected, accessibilityWindowCount: 0, serverWindows: helpers))
+        XCTAssertTrue(QuitOnClose.shouldQuit(bundleID: "com.apple.Preview", rule: rule, accessibilityWindowCount: 0, serverWindows: helpers))
+    }
+
+    func testAllAppsQuitsAnythingExceptExemptions() {
+        let all = QuitOnClose.Rule(allApps: true, selected: ["com.apple.Preview"], exempt: ["com.apple.Notes"])
+        XCTAssertTrue(QuitOnClose.shouldQuit(bundleID: "com.example.Other", rule: all, accessibilityWindowCount: 0, serverWindows: []))
+        XCTAssertFalse(QuitOnClose.shouldQuit(bundleID: "com.apple.Notes", rule: all, accessibilityWindowCount: 0, serverWindows: []))
+        XCTAssertFalse(QuitOnClose.shouldQuit(bundleID: "com.apple.finder", rule: all, accessibilityWindowCount: 0, serverWindows: []))
+        XCTAssertFalse(QuitOnClose.shouldQuit(bundleID: "com.example.Other", rule: all, accessibilityWindowCount: 1, serverWindows: []))
+    }
+
+    func testExemptionsAreIgnoredWhenNotInAllAppsMode() {
+        let picked = QuitOnClose.Rule(selected: ["com.apple.Preview"], exempt: ["com.apple.Preview"])
+        XCTAssertFalse(picked.includes("com.apple.Preview"))
+        XCTAssertFalse(QuitOnClose.Rule(exempt: ["x"]).includes("com.example.Other"))
     }
 }
 

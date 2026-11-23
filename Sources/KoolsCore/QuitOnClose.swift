@@ -9,6 +9,25 @@ public enum QuitOnClose {
         "com.apple.loginwindow",
     ]
 
+    /// Which apps Quit on Close applies to: the chosen ones, or every app
+    /// except the exempt ones.
+    public struct Rule: Sendable, Equatable {
+        public var allApps: Bool
+        public var selected: Set<String>
+        public var exempt: Set<String>
+
+        public init(allApps: Bool = false, selected: Set<String> = [], exempt: Set<String> = []) {
+            self.allApps = allApps
+            self.selected = selected
+            self.exempt = exempt
+        }
+
+        public func includes(_ bundleID: String) -> Bool {
+            guard !alwaysExempt.contains(bundleID), !exempt.contains(bundleID) else { return false }
+            return allApps || selected.contains(bundleID)
+        }
+    }
+
     /// One window the window server lists for the app.
     public struct ServerWindow: Sendable {
         public var layer: Int
@@ -34,11 +53,11 @@ public enum QuitOnClose {
     /// a missed quit is harmless, a wrong one is not.
     public static func shouldQuit(
         bundleID: String?,
-        selected: Set<String>,
+        rule: Rule,
         accessibilityWindowCount: Int,
         serverWindows: [ServerWindow]
     ) -> Bool {
-        guard let bundleID, selected.contains(bundleID), !alwaysExempt.contains(bundleID) else { return false }
+        guard let bundleID, rule.includes(bundleID) else { return false }
         return accessibilityWindowCount == 0 && !serverWindows.contains(where: \.isUserWindow)
     }
 }

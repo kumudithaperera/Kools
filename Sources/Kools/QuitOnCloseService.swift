@@ -11,13 +11,13 @@ final class QuitOnCloseService {
     private static let log = Logger(subsystem: "local.kools", category: "quit-on-close")
 
     private var active = false
-    private var bundleIDs: Set<String> = []
+    private var rule = QuitOnClose.Rule()
     private var watchers: [pid_t: WindowWatcher] = [:]
     private var pendingChecks: [pid_t: Task<Void, Never>] = [:]
     private var workspaceObservers: [NSObjectProtocol] = []
 
-    func update(active: Bool, bundleIDs: Set<String>) {
-        self.bundleIDs = bundleIDs
+    func update(active: Bool, rule: QuitOnClose.Rule) {
+        self.rule = rule
         if active != self.active {
             self.active = active
             active ? start() : stop()
@@ -52,8 +52,9 @@ final class QuitOnCloseService {
     private func syncWatchers() {
         guard active else { return }
         let wanted = NSWorkspace.shared.runningApplications.filter { app in
-            guard let id = app.bundleIdentifier, !app.isTerminated else { return false }
-            return bundleIDs.contains(id) && !QuitOnClose.alwaysExempt.contains(id)
+            guard let id = app.bundleIdentifier, !app.isTerminated, rule.includes(id) else { return false }
+            // "All apps" skips background agents and Kools itself; a picked app is always watched.
+            return !rule.allApps || (app.activationPolicy == .regular && id != Bundle.main.bundleIdentifier)
         }
         let wantedPIDs = Set(wanted.map(\.processIdentifier))
 
@@ -81,7 +82,7 @@ final class QuitOnCloseService {
             guard let axCount = AX.elements(AX.application(pid), kAXWindowsAttribute)?.count else { return }
             let quit = QuitOnClose.shouldQuit(
                 bundleID: app.bundleIdentifier,
-                selected: self.bundleIDs,
+                rule: self.rule,
                 accessibilityWindowCount: axCount,
                 serverWindows: Self.serverWindows(of: pid)
             )

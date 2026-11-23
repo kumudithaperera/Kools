@@ -114,6 +114,7 @@ struct Card<Content: View>: View {
 /// An app picked for Quit on Close.
 struct AppRow: View {
     let bundleID: String
+    var removeHelp = "Stop quitting this app"
     var remove: (() -> Void)?
     @State private var isHovered = false
 
@@ -136,7 +137,7 @@ struct AppRow: View {
                     .buttonStyle(.borderless)
                     .foregroundStyle(.secondary)
                     .opacity(isHovered ? 1 : 0)
-                    .help("Stop quitting this app")
+                    .help(removeHelp)
             }
         }
         .padding(.horizontal, 6)
@@ -146,41 +147,60 @@ struct AppRow: View {
     }
 }
 
-/// The Quit on Close app list with Add and Remove.
+/// The Quit on Close app list with Add and Remove. With "All apps" on, the
+/// list holds the exemptions instead of the chosen apps.
 struct QuitAppsEditor: View {
     @Bindable var preferences: Preferences
 
+    private var listKey: ReferenceWritableKeyPath<Preferences, [String]> {
+        preferences.quitOnCloseAllApps ? \.quitOnCloseExempt : \.quitOnCloseApps
+    }
+
+    private var apps: [String] { preferences[keyPath: listKey] }
+
     var body: some View {
+        let exempting = preferences.quitOnCloseAllApps
         VStack(alignment: .leading, spacing: 6) {
-            if preferences.quitOnCloseApps.isEmpty {
-                Text("No apps yet. Add the ones you want to quit when their last window closes.")
+            Toggle("All apps", isOn: $preferences.quitOnCloseAllApps)
+                .help("Quit every app when its last window closes, except the ones you exempt")
+            if apps.isEmpty {
+                Text(exempting
+                     ? "No exemptions. Every app quits when its last window closes."
+                     : "No apps yet. Add the ones you want to quit when their last window closes.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(6)
+            } else if exempting {
+                Text("Never quit:")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6)
             }
-            ForEach(preferences.quitOnCloseApps, id: \.self) { id in
-                AppRow(bundleID: id) { preferences.quitOnCloseApps.removeAll { $0 == id } }
+            ForEach(apps, id: \.self) { id in
+                AppRow(bundleID: id, removeHelp: exempting ? "Quit this app again" : "Stop quitting this app") {
+                    preferences[keyPath: listKey].removeAll { $0 == id }
+                }
             }
             HStack {
-                Menu("Add Running App") {
+                Menu(exempting ? "Exempt Running App" : "Add Running App") {
                     ForEach(runningCandidates, id: \.processIdentifier) { app in
                         Button(app.localizedName ?? app.bundleIdentifier ?? "?") { add(app.bundleIdentifier) }
                     }
                 }
                 .fixedSize()
                 .disabled(runningCandidates.isEmpty)
-                Button("Choose…", action: chooseApp)
+                Button(exempting ? "Exempt App…" : "Choose…", action: chooseApp)
             }
             .controlSize(.small)
         }
     }
 
-    /// Regular apps running now that aren't chosen yet and are allowed.
+    /// Regular apps running now that aren't in the list yet and are allowed.
     private var runningCandidates: [NSRunningApplication] {
         NSWorkspace.shared.runningApplications
             .filter { app in
                 guard app.activationPolicy == .regular, let id = app.bundleIdentifier else { return false }
-                return isAllowed(id) && !preferences.quitOnCloseApps.contains(id)
+                return isAllowed(id) && !apps.contains(id)
             }
             .sorted { ($0.localizedName ?? "").localizedStandardCompare($1.localizedName ?? "") == .orderedAscending }
     }
@@ -190,8 +210,8 @@ struct QuitAppsEditor: View {
     }
 
     private func add(_ bundleID: String?) {
-        guard let bundleID, isAllowed(bundleID), !preferences.quitOnCloseApps.contains(bundleID) else { return }
-        preferences.quitOnCloseApps.append(bundleID)
+        guard let bundleID, isAllowed(bundleID), !apps.contains(bundleID) else { return }
+        preferences[keyPath: listKey].append(bundleID)
     }
 
     private func chooseApp() {
@@ -199,7 +219,7 @@ struct QuitAppsEditor: View {
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
         panel.allowedContentTypes = [.application]
         panel.allowsMultipleSelection = true
-        panel.prompt = "Add"
+        panel.prompt = preferences.quitOnCloseAllApps ? "Exempt" : "Add"
         NSApp.activate()
         guard panel.runModal() == .OK else { return }
         panel.urls.forEach { add(Bundle(url: $0)?.bundleIdentifier) }

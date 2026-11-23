@@ -19,6 +19,14 @@ final class Preferences {
     var quitOnCloseApps: [String] {
         didSet { save(quitOnCloseApps, "quitOnClose.apps") }
     }
+    /// Quit every app on its last window close, except the exempt ones.
+    var quitOnCloseAllApps: Bool {
+        didSet { save(quitOnCloseAllApps, "quitOnClose.allApps") }
+    }
+    /// Bundle identifiers never quit while `quitOnCloseAllApps` is on.
+    var quitOnCloseExempt: [String] {
+        didSet { save(quitOnCloseExempt, "quitOnClose.exempt") }
+    }
     var cutPasteEnabled: Bool {
         didSet { save(cutPasteEnabled, "cutPaste.enabled") }
     }
@@ -46,6 +54,8 @@ final class Preferences {
         shelfEnabled = defaults.bool(forKey: "shelf.enabled")
         quitOnCloseEnabled = defaults.bool(forKey: "quitOnClose.enabled")
         quitOnCloseApps = defaults.stringArray(forKey: "quitOnClose.apps") ?? []
+        quitOnCloseAllApps = defaults.bool(forKey: "quitOnClose.allApps")
+        quitOnCloseExempt = defaults.stringArray(forKey: "quitOnClose.exempt") ?? []
         cutPasteEnabled = defaults.bool(forKey: "cutPaste.enabled")
         autoCommitMessages = defaults.object(forKey: "repoRadar.autoCommitMessages") as? Bool ?? true
         tabLayout = TabLayout(
@@ -152,7 +162,11 @@ final class AppModel {
         cutPaste.setActive(preferences.cutPasteEnabled && access.isTrusted)
         quitOnClose.update(
             active: preferences.quitOnCloseEnabled && access.isTrusted,
-            bundleIDs: Set(preferences.quitOnCloseApps)
+            rule: QuitOnClose.Rule(
+                allApps: preferences.quitOnCloseAllApps,
+                selected: Set(preferences.quitOnCloseApps),
+                exempt: Set(preferences.quitOnCloseExempt)
+            )
         )
     }
 }

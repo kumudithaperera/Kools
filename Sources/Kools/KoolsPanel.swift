@@ -113,6 +113,11 @@ struct KoolsPanel: View {
             .keyboardShortcut(",")
             Spacer()
             Button {
+                Relauncher.restart()
+            } label: {
+                Label("Restart", systemImage: "arrow.clockwise")
+            }
+            Button {
                 NSApp.terminate(nil)
             } label: {
                 Label("Quit Kools", systemImage: "power")
@@ -168,6 +173,10 @@ private struct ToolsPanelTab: View {
             let count = model.shelf.shelf.items.count
             return count == 0 ? "Shake while dragging to park things" : "\(count) item\(count == 1 ? "" : "s") on the shelf"
         case .quitOnClose:
+            if model.preferences.quitOnCloseAllApps {
+                let count = model.preferences.quitOnCloseExempt.count
+                return count == 0 ? "Quits every app on last window close" : "Every app but \(count) on last window close"
+            }
             let count = model.preferences.quitOnCloseApps.count
             return count == 0 ? "Auto-quit apps with no windows left" : "Quits \(count) app\(count == 1 ? "" : "s") on last window close"
         case .cutPaste:

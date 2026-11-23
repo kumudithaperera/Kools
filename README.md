@@ -41,8 +41,8 @@ have since moved drop off it. Items are kept until Kools quits. No permissions n
 
 ## Quit on Close
 
-Pick apps in the Quit on Close card. When one of them closes its last window, Kools quits
-it the normal way, so unsaved documents still ask first. Kools quits an app only when
+Pick apps in the Quit on Close card, or turn on All apps and exempt the ones to keep open.
+When one of them closes its last window, Kools quits it the normal way, so unsaved documents still ask first. Kools quits an app only when
 Accessibility and the window server both report no windows left, so a minimized window
 or one on another Space keeps the app open. Finder and system UI are never quit.
 Needs Accessibility.

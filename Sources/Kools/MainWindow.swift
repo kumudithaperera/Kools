@@ -271,7 +271,7 @@ private struct QuitOnCloseSection: View {
 
     var body: some View {
         Section {
-            Toggle("Quit these apps when their last window closes", isOn: $preferences.quitOnCloseEnabled)
+            Toggle("Quit apps when their last window closes", isOn: $preferences.quitOnCloseEnabled)
                 .onChange(of: preferences.quitOnCloseEnabled) { _, on in
                     if on, !access.isTrusted { access.request() }
                 }
