@@ -1,7 +1,7 @@
 # Kools
 
-A menu bar toolkit for macOS: Repo Radar, a drag-and-drop Shelf, Quit on Close and
-Finder cut and paste, behind one icon. Every feature except Repo Radar starts off.
+A menu bar toolkit for macOS: Repo Radar, a drag-and-drop Shelf, Quit on Close,
+Finder cut and paste and a Clipboard history, behind one icon. Every feature except Repo Radar starts off.
 
 Shelf, Quit on Close and Cut & Paste follow features from
 [Vorssaint](https://github.com/vorssaint/vorssaint-utils). The code here is written
@@ -23,7 +23,7 @@ Live Activity, by a small colored pill with only the icon of the most urgent act
 ## Panel
 
 Clicking the icon opens a panel with two tabs for now: **Repo Radar**, and **Tools** for
-the small features (Shelf, Quit on Close, Cut & Paste), one card each with its own switch.
+the small features (Shelf, Quit on Close, Cut & Paste, Clipboard), one card each with its own switch.
 Each main feature added later gets its own tab, before Tools: Tools always stays last.
 A dot on a tab or card shows it needs something. The panel reopens on the tab you used
 last.
@@ -55,6 +55,27 @@ or keyboard layout) and Kools remembers that copy. ⌘V becomes Finder's ⌥⌘V
 (Move Item Here), so Finder handles name conflicts and ⌘Z undoes the move. Copying
 anything else in between cancels the cut. Kools changes only ⌘X and ⌘V, and only while
 Finder is in front and you're not typing in a text field. Needs Accessibility.
+
+## Clipboard
+
+Copy text and a small clipboard panel opens in the bottom right corner with what you
+copied. It hides itself after a few seconds, unless the pointer is on it or you click into
+it. The same lists are in the Clipboard card in the Tools tab, and the card opens the
+floating panel without a copy. Clicking a row copies it again.
+
+- **History** keeps text for 12 hours after it was copied, then drops it. At most 50 items,
+  and nothing over 100 KB. Copying the same text again moves it to the top and restarts its
+  12 hours. History lives in memory only, is gone when Kools quits or the feature is
+  switched off, and skips copies that password managers mark as secret. Copied files
+  aren't recorded.
+- **Notes** are short text you type by hand, for things you paste often. They never expire,
+  are saved on this Mac until you delete them and can be reordered by dragging. Keep
+  passwords out of them.
+- **Paste button** is a small button inside the text field you're typing in. It opens the
+  history and notes, and clicking one pastes it there (Kools presses ⌘V, then puts your
+  previous clipboard back). It isn't shown in password fields, and apps that don't report
+  their focused field to Accessibility get no button. Needs Accessibility; the history and
+  notes don't.
 
 ## Repo Radar
 

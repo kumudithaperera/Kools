@@ -182,6 +182,11 @@ private struct ToolsPanelTab: View {
         case .cutPaste:
             let pending = model.cutPaste.pendingFileCount
             return pending > 0 ? "\(pending) item\(pending == 1 ? "" : "s") ready to move" : "Move files in Finder with ⌘X and ⌘V"
+        case .clipboard:
+            let copied = model.clipboard.history.entries.count
+            let notes = model.clipboard.notes.notes.count
+            if copied == 0, notes == 0 { return "Copies from the last 12 hours, and notes" }
+            return "\(copied) copied · \(notes) note\(notes == 1 ? "" : "s")"
         }
     }
 
@@ -200,6 +205,11 @@ private struct ToolsPanelTab: View {
             return Binding(get: { preferences.cutPasteEnabled }, set: {
                 preferences.cutPasteEnabled = $0
                 if $0, !access.isTrusted { access.request() }
+            })
+        case .clipboard:
+            return Binding(get: { preferences.clipboardEnabled }, set: {
+                preferences.clipboardEnabled = $0
+                if $0, preferences.clipboardPasteButton, !access.isTrusted { access.request() }
             })
         }
     }
@@ -236,6 +246,28 @@ private struct ToolsPanelTab: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+        case .clipboard:
+            ClipboardBrowser(service: model.clipboard)
+                .frame(height: 190)
+            let preferences = model.preferences
+            Toggle("Paste button at the text field I'm typing in", isOn: Binding(
+                get: { preferences.clipboardPasteButton },
+                set: {
+                    preferences.clipboardPasteButton = $0
+                    if $0, preferences.clipboardEnabled, !model.access.isTrusted { model.access.request() }
+                }
+            ))
+            .controlSize(.small)
+            if preferences.clipboardEnabled, preferences.clipboardPasteButton {
+                PermissionRow(access: model.access)
+            }
+            HStack {
+                Button(model.clipboard.isVisible ? "Hide Floating Clipboard" : "Open Floating Clipboard") { model.clipboard.toggle() }
+                Spacer()
+                Button("Clear History", role: .destructive) { model.clipboard.clearHistory() }
+                    .disabled(model.clipboard.history.isEmpty)
+            }
+            .controlSize(.small)
         }
     }
 

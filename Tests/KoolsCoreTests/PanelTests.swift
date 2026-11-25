@@ -5,23 +5,23 @@ import XCTest
 final class PriorityOrderTests: XCTestCase {
     func testDefaultOrderShowsEverything() {
         XCTAssertEqual(TabLayout().visible, [.repoRadar, .tools])
-        XCTAssertEqual(ToolLayout().visible, [.shelf, .quitOnClose, .cutPaste])
+        XCTAssertEqual(ToolLayout().visible, [.shelf, .quitOnClose, .cutPaste, .clipboard])
     }
 
     func testSavedOrderIsRepairedNotLost() {
         // Old saves listed the tools as tabs; those names are dropped.
         XCTAssertEqual(TabLayout(order: ["shelf", "tools", "cutPaste"]).order, [.repoRadar, .tools])
-        XCTAssertEqual(ToolLayout(order: ["cutPaste", "bogus", "cutPaste"]).order, [.cutPaste, .shelf, .quitOnClose])
+        XCTAssertEqual(ToolLayout(order: ["cutPaste", "bogus", "cutPaste"]).order, [.cutPaste, .shelf, .quitOnClose, .clipboard])
     }
 
     func testMoveMatchesOnMove() {
         var layout = ToolLayout()
         layout.move(fromOffsets: [2], toOffset: 0)
-        XCTAssertEqual(layout.order, [.cutPaste, .shelf, .quitOnClose])
+        XCTAssertEqual(layout.order, [.cutPaste, .shelf, .quitOnClose, .clipboard])
         layout.move(fromOffsets: [0], toOffset: 3)
-        XCTAssertEqual(layout.order, [.shelf, .quitOnClose, .cutPaste])
+        XCTAssertEqual(layout.order, [.shelf, .quitOnClose, .cutPaste, .clipboard])
         layout.move(fromOffsets: [0, 1], toOffset: 3)
-        XCTAssertEqual(layout.order, [.cutPaste, .shelf, .quitOnClose])
+        XCTAssertEqual(layout.order, [.cutPaste, .shelf, .quitOnClose, .clipboard])
     }
 
     func testToolsTabStaysLast() {

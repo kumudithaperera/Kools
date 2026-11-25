@@ -1,4 +1,5 @@
 import ApplicationServices
+import AppKit
 
 /// Small helpers over the Accessibility C API.
 enum AX {
@@ -20,6 +21,22 @@ enum AX {
     static func element(_ element: AXUIElement, _ attribute: String) -> AXUIElement? {
         guard let value = value(element, attribute), CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
         return (value as! AXUIElement)
+    }
+
+    /// A frame in AppKit screen coordinates (origin bottom-left), from an
+    /// element's position and size, which Accessibility gives from the top-left
+    /// of the main display.
+    static func frame(_ element: AXUIElement) -> CGRect? {
+        guard let position = value(element, kAXPositionAttribute), let size = value(element, kAXSizeAttribute),
+              CFGetTypeID(position) == AXValueGetTypeID(), CFGetTypeID(size) == AXValueGetTypeID()
+        else { return nil }
+        var origin = CGPoint.zero
+        var extent = CGSize.zero
+        guard AXValueGetValue(position as! AXValue, .cgPoint, &origin),
+              AXValueGetValue(size as! AXValue, .cgSize, &extent),
+              let mainHeight = NSScreen.screens.first?.frame.height
+        else { return nil }
+        return CGRect(x: origin.x, y: mainHeight - origin.y - extent.height, width: extent.width, height: extent.height)
     }
 
     static func application(_ pid: pid_t, timeout: Float = 0.25) -> AXUIElement {

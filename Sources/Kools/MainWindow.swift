@@ -238,6 +238,7 @@ private struct ToolsTab: View {
                 case .shelf: ShelfSection(preferences: model.preferences, shelf: model.shelf)
                 case .quitOnClose: QuitOnCloseSection(preferences: model.preferences, access: model.access)
                 case .cutPaste: CutPasteSection(preferences: model.preferences, access: model.access)
+                case .clipboard: ClipboardSection(preferences: model.preferences, access: model.access, clipboard: model.clipboard)
                 }
             }
         }
@@ -306,6 +307,39 @@ private struct CutPasteSection: View {
             Label(ToolItem.cutPaste.title, systemImage: ToolItem.cutPaste.symbol)
         } footer: {
             Text("Finder does the move itself, so name conflicts are handled the usual way and ⌘Z undoes it. Copying anything else after ⌘X cancels the cut. Renaming a file and typing in the search field are left alone.")
+        }
+    }
+}
+
+private struct ClipboardSection: View {
+    @Bindable var preferences: Preferences
+    let access: AccessibilityAccess
+    let clipboard: ClipboardService
+
+    var body: some View {
+        Section {
+            Toggle("Keep what I copy for 12 hours", isOn: $preferences.clipboardEnabled)
+                .onChange(of: preferences.clipboardEnabled) { _, on in
+                    if on, preferences.clipboardPasteButton, !access.isTrusted { access.request() }
+                }
+            Toggle("Show a paste button at the text field I'm typing in", isOn: $preferences.clipboardPasteButton)
+                .onChange(of: preferences.clipboardPasteButton) { _, on in
+                    if on, preferences.clipboardEnabled, !access.isTrusted { access.request() }
+                }
+            if preferences.clipboardEnabled, preferences.clipboardPasteButton {
+                PermissionRow(access: access)
+            }
+            LabeledContent("Copied", value: "\(clipboard.history.entries.count) item\(clipboard.history.entries.count == 1 ? "" : "s")")
+            LabeledContent("Notes", value: "\(clipboard.notes.notes.count) saved")
+            HStack {
+                Button(clipboard.isVisible ? "Hide Floating Clipboard" : "Open Floating Clipboard") { clipboard.toggle() }
+                Button("Clear History") { clipboard.clearHistory() }
+                    .disabled(clipboard.history.isEmpty)
+            }
+        } header: {
+            Label(ToolItem.clipboard.title, systemImage: ToolItem.clipboard.symbol)
+        } footer: {
+            Text("Copied text stays in memory for 12 hours (up to 50 items) and is never written to disk. Copies that password managers mark as secret are skipped. Notes are saved on this Mac until you delete them, so keep passwords out of them. Only the paste button needs Accessibility.")
         }
     }
 }

@@ -39,13 +39,14 @@ public enum PanelTab: String, PriorityItem {
 
 /// The small features inside the Tools tab.
 public enum ToolItem: String, PriorityItem {
-    case shelf, quitOnClose, cutPaste
+    case shelf, quitOnClose, cutPaste, clipboard
 
     public var title: String {
         switch self {
         case .shelf: "Shelf"
         case .quitOnClose: "Quit on Close"
         case .cutPaste: "Cut & Paste"
+        case .clipboard: "Clipboard"
         }
     }
 
@@ -54,6 +55,7 @@ public enum ToolItem: String, PriorityItem {
         case .shelf: "tray.full"
         case .quitOnClose: "xmark.app"
         case .cutPaste: "scissors"
+        case .clipboard: "doc.on.clipboard"
         }
     }
 }

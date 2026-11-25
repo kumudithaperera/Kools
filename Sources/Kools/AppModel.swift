@@ -30,6 +30,13 @@ final class Preferences {
     var cutPasteEnabled: Bool {
         didSet { save(cutPasteEnabled, "cutPaste.enabled") }
     }
+    var clipboardEnabled: Bool {
+        didSet { save(clipboardEnabled, "clipboard.enabled") }
+    }
+    /// Show a paste button at the text field being typed in. Needs Accessibility.
+    var clipboardPasteButton: Bool {
+        didSet { save(clipboardPasteButton, "clipboard.pasteButton") }
+    }
     /// Ask T3 Code for a commit message when a repo with changes is opened.
     /// On by default.
     var autoCommitMessages: Bool {
@@ -57,6 +64,8 @@ final class Preferences {
         quitOnCloseAllApps = defaults.bool(forKey: "quitOnClose.allApps")
         quitOnCloseExempt = defaults.stringArray(forKey: "quitOnClose.exempt") ?? []
         cutPasteEnabled = defaults.bool(forKey: "cutPaste.enabled")
+        clipboardEnabled = defaults.bool(forKey: "clipboard.enabled")
+        clipboardPasteButton = defaults.object(forKey: "clipboard.pasteButton") as? Bool ?? true
         autoCommitMessages = defaults.object(forKey: "repoRadar.autoCommitMessages") as? Bool ?? true
         tabLayout = TabLayout(
             order: defaults.stringArray(forKey: "tabs.order") ?? [],
@@ -114,9 +123,12 @@ final class AppModel {
     let access = AccessibilityAccess()
     let shelf = ShelfService()
     let cutPaste = CutPasteService()
+    let clipboard = ClipboardService()
     @ObservationIgnored private let quitOnClose = QuitOnCloseService()
+    @ObservationIgnored private let pasteButton: PasteButtonService
 
     init() {
+        pasteButton = PasteButtonService(clipboard: clipboard)
         preferences.onChange = { [weak self] in self?.apply() }
         access.onChange = { [weak self] in self?.apply() }
         cutPaste.onCut = { [weak self] urls in self?.shelf.parkCut(urls) }
@@ -126,13 +138,18 @@ final class AppModel {
 
     /// A feature that needs Accessibility is on, but access isn't granted.
     var needsPermission: Bool {
-        (preferences.quitOnCloseEnabled || preferences.cutPasteEnabled) && !access.isTrusted
+        permissionCount > 0
+    }
+
+    /// The paste button is the part of Clipboard that needs Accessibility.
+    private var clipboardNeedsAccessibility: Bool {
+        preferences.clipboardEnabled && preferences.clipboardPasteButton
     }
 
     /// Features that are on but lack Accessibility access.
     private var permissionCount: Int {
         guard !access.isTrusted else { return 0 }
-        return [preferences.quitOnCloseEnabled, preferences.cutPasteEnabled].filter { $0 }.count
+        return [preferences.quitOnCloseEnabled, preferences.cutPasteEnabled, clipboardNeedsAccessibility].filter { $0 }.count
     }
 
     /// What the menu bar shows in place of the app icon, most urgent first.
@@ -154,11 +171,14 @@ final class AppModel {
         case .shelf: nil
         case .quitOnClose: preferences.quitOnCloseEnabled && !access.isTrusted ? .permission : nil
         case .cutPaste: preferences.cutPasteEnabled && !access.isTrusted ? .permission : nil
+        case .clipboard: clipboardNeedsAccessibility && !access.isTrusted ? .permission : nil
         }
     }
 
     private func apply() {
         shelf.setEnabled(preferences.shelfEnabled)
+        clipboard.setEnabled(preferences.clipboardEnabled)
+        pasteButton.setActive(clipboardNeedsAccessibility && access.isTrusted)
         cutPaste.setActive(preferences.cutPasteEnabled && access.isTrusted)
         quitOnClose.update(
             active: preferences.quitOnCloseEnabled && access.isTrusted,
