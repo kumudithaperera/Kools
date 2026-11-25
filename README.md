@@ -7,6 +7,31 @@ Shelf, Quit on Close and Cut & Paste follow features from
 [Vorssaint](https://github.com/vorssaint/vorssaint-utils). The code here is written
 from scratch; none of it is copied from Vorssaint.
 
+## Install
+
+Requires macOS 14 or later. Repo Radar looks in `~/Projects` and opens repos in
+[T3 Code](https://t3.codes); without those it stays empty, and the other tools work as usual.
+
+**Download** the latest `Kools.zip` from [Releases](https://github.com/kumudithaperera/Kools/releases),
+unzip it and drag `Kools.app` to Applications. The app isn't notarized, so macOS blocks the
+first launch: open **System Settings ▸ Privacy & Security** and click **Open Anyway**, or run
+`xattr -dr com.apple.quarantine /Applications/Kools.app` once.
+
+**Or build it yourself** (needs Xcode):
+
+```sh
+git clone https://github.com/kumudithaperera/Kools.git
+cd Kools
+scripts/install.sh
+```
+
+This builds Kools and copies it to `/Applications`. Run it again to update. A build made
+without an Apple Development certificate is signed ad hoc, so macOS asks you to grant
+Accessibility again after each update.
+
+Kools lives in the menu bar and has no Dock icon. Features that need Accessibility
+(Quit on Close, Cut & Paste, the paste button) ask for it when you switch them on.
+
 ## Menu bar icon
 
 The icon is 😆 while nothing needs you. When something does, it is replaced, like a

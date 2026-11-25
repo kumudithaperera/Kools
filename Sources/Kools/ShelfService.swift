@@ -241,6 +241,7 @@ struct ShelfView: View {
             .buttonStyle(.borderless)
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
+            .background(WindowDragArea())
 
             Divider()
 

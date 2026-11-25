@@ -311,6 +311,20 @@ struct PanelGlass: NSViewRepresentable {
     func updateNSView(_ nsView: NSView, context: Context) {}
 }
 
+/// Dragging anywhere on this view's background moves the window. The
+/// hosting view of a SwiftUI panel doesn't pass background clicks on, so
+/// `isMovableByWindowBackground` alone does nothing there. Buttons placed
+/// over it still get their clicks.
+struct WindowDragArea: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView { DragView() }
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    private final class DragView: NSView {
+        override var mouseDownCanMoveWindow: Bool { true }
+        override func mouseDown(with event: NSEvent) { window?.performDrag(with: event) }
+    }
+}
+
 /// A row where each child gets its own ideal width plus an equal share of the
 /// spare room. Stretching children to equal widths would give a short label
 /// wide padding and a long one almost none; this keeps the padding the same.

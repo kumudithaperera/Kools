@@ -3,12 +3,16 @@
 set -euo pipefail
 
 cd "${0:A:h}/.."
-swift build -c release
+
+# KOOLS_UNIVERSAL=1 builds for Apple silicon and Intel (used for releases).
+build_args=(-c release)
+[[ -n "${KOOLS_UNIVERSAL:-}" ]] && build_args+=(--arch arm64 --arch x86_64)
+swift build "${build_args[@]}"
 
 app="build/Kools.app"
 rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
-cp "$(swift build -c release --show-bin-path)/Kools" "$app/Contents/MacOS/Kools"
+cp "$(swift build "${build_args[@]}" --show-bin-path)/Kools" "$app/Contents/MacOS/Kools"
 
 # App icon: 😆, rendered fresh each build (no image files in the repo).
 iconset="build/AppIcon.iconset"
@@ -32,6 +36,11 @@ cat > "$app/Contents/Info.plist" <<'PLIST'
 </dict>
 </plist>
 PLIST
+
+# KOOLS_VERSION (for example 0.4.0) overrides the version in Info.plist.
+if [[ -n "${KOOLS_VERSION:-}" ]]; then
+    /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $KOOLS_VERSION" "$app/Contents/Info.plist"
+fi
 
 # Sign with a real certificate when there is one. macOS ties the Accessibility
 # grant to the signature, and an ad-hoc signature changes on every build, so

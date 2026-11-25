@@ -1,0 +1,30 @@
+name: Release
+
+# Push a tag such as v0.4.0 to build Kools.app and attach it to a GitHub Release.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # The code uses macOS 26 APIs, so it needs the macOS 26 SDK.
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test
+        run: swift test
+      - name: Build
+        env:
+          KOOLS_UNIVERSAL: "1"
+        run: |
+          export KOOLS_VERSION="${GITHUB_REF_NAME#v}"
+          scripts/bundle.sh
+      - name: Zip
+        run: ditto -c -k --keepParent build/Kools.app Kools.zip
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" Kools.zip --title "$GITHUB_REF_NAME" --generate-notes
