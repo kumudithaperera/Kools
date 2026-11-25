@@ -113,11 +113,6 @@ struct KoolsPanel: View {
             .keyboardShortcut(",")
             Spacer()
             Button {
-                Relauncher.restart()
-            } label: {
-                Label("Restart", systemImage: "arrow.clockwise")
-            }
-            Button {
                 NSApp.terminate(nil)
             } label: {
                 Label("Quit Kools", systemImage: "power")
