@@ -86,6 +86,8 @@ final class QuitOnCloseTests: XCTestCase {
             QuitOnClose.ServerWindow(layer: 25, width: 800, height: 600, alpha: 1),
             QuitOnClose.ServerWindow(layer: 0, width: 20, height: 20, alpha: 1),
             QuitOnClose.ServerWindow(layer: 0, width: 800, height: 600, alpha: 0),
+            // A closed window the app hid instead of destroying (VLC, Electron apps).
+            QuitOnClose.ServerWindow(layer: 0, width: 800, height: 600, alpha: 1, isOrderedIn: false),
         ]
         XCTAssertTrue(QuitOnClose.shouldQuit(bundleID: "com.apple.Preview", rule: rule, accessibilityWindowCount: 0, serverWindows: helpers))
     }

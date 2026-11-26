@@ -95,6 +95,7 @@ final class QuitOnCloseService {
 
     /// Every window the window server has for the app, on any Space.
     private static func serverWindows(of pid: pid_t) -> [QuitOnClose.ServerWindow] {
+        let connection = WindowServer.connection()
         let list = CGWindowListCopyWindowInfo([.optionAll, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
         return list.compactMap { info in
             guard (info[kCGWindowOwnerPID as String] as? Int).map(pid_t.init) == pid,
@@ -104,14 +105,43 @@ final class QuitOnCloseService {
                 layer: info[kCGWindowLayer as String] as? Int ?? -1,
                 width: bounds["Width"] ?? 0,
                 height: bounds["Height"] ?? 0,
-                alpha: info[kCGWindowAlpha as String] as? Double ?? 0
+                alpha: info[kCGWindowAlpha as String] as? Double ?? 0,
+                isOrderedIn: (info[kCGWindowNumber as String] as? Int).map {
+                    WindowServer.isOrderedIn(UInt32($0), connection: connection)
+                } ?? true
             )
         }
     }
 }
 
-/// Accessibility notifications for one app: new windows get a "destroyed"
-/// watch, and a destroyed window calls `onWindowClosed`.
+/// Private window-server calls, looked up at run time. There is no public way
+/// to tell a hidden window from one on another Space: both are off screen.
+/// If a symbol is missing, every window counts as shown, so nothing extra quits.
+private enum WindowServer {
+    private typealias ConnectionFn = @convention(c) () -> Int32
+    private typealias IsOrderedInFn = @convention(c) (Int32, UInt32, UnsafeMutablePointer<DarwinBoolean>) -> Int32
+
+    private static func symbol<T>(_ name: String, as type: T.Type) -> T? {
+        guard let handle = dlopen("/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics", RTLD_LAZY),
+              let pointer = dlsym(handle, name)
+        else { return nil }
+        return unsafeBitCast(pointer, to: type)
+    }
+
+    private static let connectionFn = symbol("CGSMainConnectionID", as: ConnectionFn.self)
+    private static let isOrderedInFn = symbol("CGSWindowIsOrderedIn", as: IsOrderedInFn.self)
+
+    static func connection() -> Int32? { connectionFn?() }
+
+    static func isOrderedIn(_ windowID: UInt32, connection: Int32?) -> Bool {
+        guard let connection, let isOrderedInFn else { return true }
+        var orderedIn: DarwinBoolean = true
+        return isOrderedInFn(connection, windowID, &orderedIn) == 0 ? orderedIn.boolValue : true
+    }
+}
+
+/// Accessibility notifications for one app: new or reshown windows get a
+/// "destroyed" watch, and a destroyed window calls `onWindowClosed`.
 @MainActor
 private final class WindowWatcher {
     private let app: AXUIElement
@@ -126,7 +156,11 @@ private final class WindowWatcher {
         self.onWindowClosed = onWindowClosed
 
         guard add(kAXWindowCreatedNotification, to: app) else { return nil }
-        AX.elements(app, kAXWindowsAttribute)?.forEach { add(kAXUIElementDestroyedNotification, to: $0) }
+        // Apps that hide a closed window (Mail, VLC, Electron apps) show it
+        // again without a "window created", so rescan when focus moves.
+        add(kAXFocusedWindowChangedNotification, to: app)
+        add(kAXMainWindowChangedNotification, to: app)
+        watchCurrentWindows()
         CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
     }
 
@@ -142,11 +176,21 @@ private final class WindowWatcher {
     }
 
     fileprivate func received(_ notification: String, element: AXUIElement) {
-        if notification == kAXWindowCreatedNotification {
+        switch notification {
+        case kAXWindowCreatedNotification:
             add(kAXUIElementDestroyedNotification, to: element)
-        } else if notification == kAXUIElementDestroyedNotification {
+        case kAXFocusedWindowChangedNotification, kAXMainWindowChangedNotification:
+            watchCurrentWindows()
+        case kAXUIElementDestroyedNotification:
             onWindowClosed()
+        default:
+            break
         }
+    }
+
+    /// Already-watched windows are skipped by Accessibility, so this is safe to repeat.
+    private func watchCurrentWindows() {
+        AX.elements(app, kAXWindowsAttribute)?.forEach { add(kAXUIElementDestroyedNotification, to: $0) }
     }
 }
 

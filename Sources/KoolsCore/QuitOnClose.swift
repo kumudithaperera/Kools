@@ -34,22 +34,27 @@ public enum QuitOnClose {
         public var width: Double
         public var height: Double
         public var alpha: Double
+        /// Whether the window is ordered in (shown), on any Space. Apps like
+        /// VLC and Electron apps hide a closed window instead of destroying it;
+        /// those hidden windows are ordered out.
+        public var isOrderedIn: Bool
 
-        public init(layer: Int, width: Double, height: Double, alpha: Double) {
+        public init(layer: Int, width: Double, height: Double, alpha: Double, isOrderedIn: Bool = true) {
             self.layer = layer
             self.width = width
             self.height = height
             self.alpha = alpha
+            self.isOrderedIn = isOrderedIn
         }
 
-        /// A normal document-sized window. Layer 0 is the normal window layer;
-        /// tiny or transparent ones are helper surfaces, not windows a person uses.
-        var isUserWindow: Bool { layer == 0 && alpha > 0 && width >= 100 && height >= 100 }
+        /// A shown, document-sized window. Layer 0 is the normal window layer;
+        /// tiny, transparent or hidden ones are not windows a person uses.
+        var isUserWindow: Bool { isOrderedIn && layer == 0 && alpha > 0 && width >= 100 && height >= 100 }
     }
 
     /// Quit only when both sources agree there is nothing left. Accessibility
     /// can miss windows on other Spaces, so the window server gets a vote too,
-    /// including off-screen windows. When the two disagree the app stays open:
+    /// including windows on other Spaces but not hidden ones. When the two disagree the app stays open:
     /// a missed quit is harmless, a wrong one is not.
     public static func shouldQuit(
         bundleID: String?,
